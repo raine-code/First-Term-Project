@@ -1,86 +1,120 @@
-// services/RequestService.js
-//will do the write/update
-
-const { Request, Requester, Active, RequestLineItem } = require("../model");
-// const RequestLineItem = require("../model/RequestLineItem");
+// server/services/RequestService.js
+const { Op } = require("sequelize");
+const {
+  Request,
+  Requester,
+  Municipality,
+  Active,
+  RequestLineItem,
+} = require("../model");
 const inventoryService = require("./InventoryService");
 
 class RequestService {
-  // Approve a request
-  async approveRequest(idRequest) {
-    const request = await Request.findByPk(idRequest);
-    if (!request) throw new Error("Request not found");
-
-    await request.update({
-      status: "APPROVED", // Matches DB ALL-CAPS convention
-      dateApproved: new Date(), // Updates timestamp
-    });
-
-    return { success: true, message: "Request approved successfully." };
-  }
-
-  // Reject a request
-  async rejectRequest(idRequest) {
-    const request = await Request.findByPk(idRequest);
-    if (!request) throw new Error("Request not found");
-
-    await request.update({
-      status: "REJECTED", // Changed "Declined" to "REJECTED" to match DB
-    });
-
-    return { success: true, message: "Request rejected successfully." };
-  }
-
-  // Process and fulfill an approved request
-  async processSeedPack(trackingNo, barcode, stockOut) {
-    // 1. Verify Request
-    const request = await Request.findOne({ where: { trackingNo: trackingNo } });
-    if (!request || request.status !== "APPROVED") {
-      throw new Error("Invalid tracking number or request is not approved.");
-    }
-
-    // 2. Check Inventory via InventoryService
-    const seed = await inventoryService.getSeedByBarcode(barcode);
-    if (!seed) throw new Error("Seed barcode not found.");
-    if (seed.currentWeight < stockOut)
-      throw new Error("Insufficient seed weight.");
-
-    // 3. Update Weight via InventoryService
-    const updatedWeight = seed.currentWeight - stockOut;
-    await inventoryService.updateWeight(barcode, updatedWeight);
-
-    // 4. Create Line Item record
-    await RequestLineItem.create({
-      fkTrackingNo: trackingNo,
-      fkBarcode: barcode,
-      stockOut: stockOut,
-    });
-
-    // 5. Dispatch Request
-    request.status = "Dispatched";
-    request.dateDispatched = new Date();
-    await request.save();
-
-    return {
-      success: true,
-      message: "Seed pack processed and request dispatched!",
-    };
-  }
-
-  // Fetch all requests
+  // Fetch all requests with associated Requester and Line Items
   async fetchAll() {
-    // This fetches every row in the Request table
-    // Inside your backend where you fetch requests:
-    const requests = await Request.findAll({
+    return await Request.findAll({
       include: [
-        { model: Requester }, // Gets the fName and lName
+        { model: Requester },
         {
           model: RequestLineItem,
-          include: [{ model: Active }], // Gets the Seed name
+          include: [{ model: Active }],
         },
       ],
     });
-    return requests;
+  }
+
+  // Fetch all active seed packets for dropdown selection
+  async getSeedsList() {
+    return await Active.findAll({
+      attributes: ["idActive", "name", "barcode", "currentWeight"],
+    });
+  }
+
+  // Create a new request, finding/creating Requester & Municipality records
+  async createRequest(payload) {
+    const {
+      fName,
+      lName,
+      agency,
+      emailAdd,
+      municipality,
+      seedBarcode,
+      weightReq,
+    } = payload;
+
+    // 1. Find or create Municipality
+    let municipalityId = null;
+    if (municipality) {
+      const [muniRecord] = await Municipality.findOrCreate({
+        where: { town: municipality },
+        defaults: { town: municipality, province: "N/A" },
+      });
+      municipalityId = muniRecord.idMunicipality;
+    }
+
+    // 2. Find or create Requester by email
+    const [requester] = await Requester.findOrCreate({
+      where: { emailAdd },
+      defaults: {
+        fName,
+        lName,
+        agency,
+        emailAdd,
+        idFkMunicipality: municipalityId,
+      },
+    });
+
+    // 3. Find selected seed in TBL_ACTIVE
+    const activeSeed = await Active.findOne({
+      where: { barcode: seedBarcode },
+    });
+    if (!activeSeed) {
+      throw new Error("Selected seed packet not found.");
+    }
+
+    // 4. Generate incremental tracking number (e.g., 2026-GBSR-0001)
+    const currentYear = new Date().getFullYear();
+    const prefix = `${currentYear}-GBSR-`;
+
+    const lastRequest = await Request.findOne({
+      where: {
+        trackingNo: {
+          [Op.like]: `${prefix}%`,
+        },
+      },
+      order: [["idRequest", "DESC"]],
+    });
+
+    let nextNumber = 1;
+    if (lastRequest && lastRequest.trackingNo) {
+      const parts = lastRequest.trackingNo.split("-");
+      const lastSequenceStr = parts[parts.length - 1];
+      const parsedNum = parseInt(lastSequenceStr, 10);
+      if (!isNaN(parsedNum)) {
+        nextNumber = parsedNum + 1;
+      }
+    }
+
+    const formattedSequence = String(nextNumber).padStart(4, "0");
+    const trackingNo = `${prefix}${formattedSequence}`;
+
+    // 5. Create Request record
+    const newRequest = await Request.create({
+      idFkRequester: requester.idRequester,
+      trackingNo,
+      dateReq: new Date(),
+      weightReq: parseInt(weightReq, 10),
+      status: "PENDING",
+    });
+
+    // 6. Create associated RequestLineItem record
+    await RequestLineItem.create({
+      fkTrackingNo: trackingNo,
+      fkBarcode: activeSeed.barcode,
+      stockOut: 0,
+    });
+
+    return newRequest;
   }
 
   // Set or update deadline date for a request
@@ -100,22 +134,171 @@ class RequestService {
 
   // Universal status updater (Handles dateApproved automatically)
   async updateStatus(idRequest, status) {
-    const updateData = { status: status.toUpperCase() };
+    const normalizedStatus = status.toUpperCase();
+    const updateData = { status: normalizedStatus };
 
-    // Automatically set dateApproved if approving
-    if (status.toUpperCase() === "APPROVED") {
+    if (normalizedStatus === "APPROVED") {
       updateData.dateApproved = new Date();
     }
 
     const [updatedCount] = await Request.update(updateData, {
-      where: { idRequest: idRequest },
+      where: { idRequest },
     });
 
     if (updatedCount === 0) {
       throw new Error(`Request #${idRequest} not found or status unchanged.`);
     }
 
-    return { idRequest, status: status.toUpperCase() };
+    return { idRequest, status: normalizedStatus };
+  }
+
+  // Process and fulfill an approved request
+  async processSeedPack(trackingNo, barcode, stockOut) {
+    const request = await Request.findOne({ where: { trackingNo } });
+    if (!request || request.status !== "APPROVED") {
+      throw new Error("Invalid tracking number or request is not approved.");
+    }
+
+    const seed = await inventoryService.getSeedByBarcode(barcode);
+    if (!seed) throw new Error("Seed barcode not found.");
+    if (seed.currentWeight < stockOut) {
+      throw new Error("Insufficient seed weight.");
+    }
+
+    const updatedWeight = seed.currentWeight - stockOut;
+    await inventoryService.updateWeight(barcode, updatedWeight);
+
+    await RequestLineItem.create({
+      fkTrackingNo: trackingNo,
+      fkBarcode: barcode,
+      stockOut,
+    });
+
+    request.status = "DISPATCHED";
+    request.dateDispatched = new Date();
+    await request.save();
+
+    return {
+      success: true,
+      message: "Seed pack processed and request dispatched!",
+    };
+  }
+
+  // Aggregate metrics for daily stats dashboard
+  async getDailyStats() {
+    const approvedSeeds = await Request.count({
+      where: { status: "APPROVED" },
+    });
+    const distributedSeeds = await Request.count({
+      where: { status: "DISPATCHED" },
+    });
+    const currentRequests = await Request.count({
+      where: { status: "PENDING" },
+    });
+    const totalSeedPackets = await Active.count();
+
+    return {
+      approvedSeeds,
+      distributedSeeds,
+      totalSeedPackets,
+      currentRequests,
+    };
+  }
+
+  // Operational analytics calculation for top seeds and requesters
+  async getAnalytics() {
+    const rawSeeds = await RequestLineItem.findAll({
+      attributes: ["FK_BARCODE", "ID_LINEITEM"],
+      include: [
+        {
+          model: Active,
+          attributes: ["name"],
+          required: false,
+        },
+      ],
+      raw: true,
+    });
+
+    const rawRequests = await Request.findAll({
+      attributes: ["ID_FK_REQUESTER", "STATUS"],
+      include: [
+        {
+          model: Requester,
+          attributes: ["F_NAME", "L_NAME"],
+          required: false,
+        },
+      ],
+      where: { status: "DISPATCHED" },
+      raw: true,
+    });
+
+    // Group Seeds
+    const seedMap = {};
+    rawSeeds.forEach((item) => {
+      const barcodeKey = Object.keys(item).find(
+        (k) => k.includes("FK_BARCODE") || k === "fkBarcode",
+      );
+      const barcode = item[barcodeKey];
+
+      const nameKey = Object.keys(item).find(
+        (k) => k.includes("name") || k.includes("Name"),
+      );
+      const seedName = item[nameKey] ? item[nameKey].trim() : "Unknown Seed";
+
+      if (barcode && !seedMap[barcode]) {
+        seedMap[barcode] = {
+          fkBarcode: barcode,
+          seedName,
+          requestCount: 0,
+        };
+      }
+      if (barcode && seedMap[barcode]) {
+        seedMap[barcode].requestCount += 1;
+      }
+    });
+
+    const topSeeds = Object.values(seedMap)
+      .sort((a, b) => b.requestCount - a.requestCount)
+      .slice(0, 10);
+
+    // Group Requesters
+    const requesterMap = {};
+    rawRequests.forEach((item) => {
+      const idKey = Object.keys(item).find(
+        (k) => k.includes("ID_FK_REQUESTER") || k === "idFkRequester",
+      );
+      const requesterId = item[idKey];
+
+      const fNameKey = Object.keys(item).find(
+        (k) =>
+          k.includes("F_NAME") || k.includes("fName") || k.includes("First"),
+      );
+      const fName = item[fNameKey] ? item[fNameKey].trim() : "Unknown";
+
+      const lNameKey = Object.keys(item).find(
+        (k) =>
+          k.includes("L_NAME") || k.includes("lName") || k.includes("Last"),
+      );
+      const lName = item[lNameKey] ? item[lNameKey].trim() : "Unknown";
+
+      if (requesterId && !requesterMap[requesterId]) {
+        requesterMap[requesterId] = {
+          idFkRequester: requesterId,
+          fName,
+          lName,
+          distributedCount: 0,
+        };
+      }
+      if (requesterId && requesterMap[requesterId]) {
+        requesterMap[requesterId].distributedCount += 1;
+      }
+    });
+
+    const topRequesters = Object.values(requesterMap)
+      .sort((a, b) => b.distributedCount - a.distributedCount)
+      .slice(0, 10);
+
+    return { topSeeds, topRequesters };
   }
 }
 

@@ -19,4 +19,8 @@ router.get("/analytics", RequestController.getAnalytics);
 // NEW ENDPOINT: Admin updates request status (Approve/Reject)
 router.put("/update-status", RequestController.updateRequestStatus);
 
+// NEW ROUTES
+router.get("/seeds-list", RequestController.getSeedsList);
+router.post("/create", RequestController.createRequest);
+
 module.exports = router;

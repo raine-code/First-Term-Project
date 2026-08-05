@@ -50,6 +50,12 @@ const AdminDashboard = () => {
           Analytics
         </button>
         <button
+          onClick={() => navigate('/add-request')}
+          className="bg-green-600 hover:bg-green-700 text-white px-5 py-2 rounded text-sm font-medium shadow transition-colors"
+        >
+          Add Request
+        </button>
+        <button
           onClick={handleLogout}
           className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded text-sm transition-colors"
         >
