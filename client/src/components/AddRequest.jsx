@@ -5,40 +5,54 @@ import { useNavigate } from "react-router-dom";
 const AddRequest = () => {
     const navigate = useNavigate();
     const [seeds, setSeeds] = useState([]);
-    const [loadingSeeds, setLoadingSeeds] = useState(true);
+    const [municipalities, setMunicipalities] = useState([]);
+    const [loadingSelects, setLoadingSelects] = useState(true);
 
     const [formData, setFormData] = useState({
         fName: "",
         lName: "",
         agency: "",
         emailAdd: "",
-        municipality: "",
+        municipalityId: "", // Changed from 'municipality' text
         seedBarcode: "",
         weightReq: "",
+        studyTitle: "", // New state field
     });
 
     const [submitting, setSubmitting] = useState(false);
     const [error, setError] = useState("");
 
-    // Fetch available seed packets for selection
+    // Fetch available seed packets and registered municipalities for selection
     useEffect(() => {
-        const fetchSeeds = async () => {
+        const fetchDropdownData = async () => {
             try {
-                const response = await fetch("http://localhost:3000/api/requests/seeds-list");
-                const result = await response.json();
-                if (response.ok && result.success) {
-                    setSeeds(result.data || []);
+                const [seedsResponse, muniResponse] = await Promise.all([
+                    fetch("http://localhost:3000/api/requests/seeds-list"),
+                    fetch("http://localhost:3000/api/requests/municipalities")
+                ]);
+
+                const seedsResult = await seedsResponse.json();
+                const muniResult = await muniResponse.json();
+
+                if (seedsResponse.ok && seedsResult.success) {
+                    setSeeds(seedsResult.data || []);
                 } else {
                     setError("Failed to load available seeds.");
                 }
+
+                if (muniResponse.ok && muniResult.success) {
+                    setMunicipalities(muniResult.data || []);
+                } else {
+                    setError("Failed to load registered municipalities.");
+                }
             } catch (err) {
-                console.error("Error loading seeds:", err);
-                setError("Network error while loading seed list.");
+                console.error("Error loading dropdown data:", err);
+                setError("Network error while loading form data.");
             } finally {
-                setLoadingSeeds(false);
+                setLoadingSelects(false);
             }
         };
-        fetchSeeds();
+        fetchDropdownData();
     }, []);
 
     const handleChange = (e) => {
@@ -149,15 +163,22 @@ const AddRequest = () => {
                             </div>
 
                             <div className="md:col-span-2">
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Municipality / Town</label>
-                                <input
-                                    type="text"
-                                    name="municipality"
-                                    value={formData.municipality}
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Municipality / Town *</label>
+                                <select
+                                    name="municipalityId"
+                                    value={formData.municipalityId}
                                     onChange={handleChange}
-                                    placeholder="e.g. San Jose"
-                                    className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:ring-2 focus:ring-green-500 outline-none"
-                                />
+                                    required
+                                    disabled={loadingSelects}
+                                    className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:ring-2 focus:ring-green-500 outline-none bg-white"
+                                >
+                                    <option value="">-- Select Municipality --</option>
+                                    {municipalities.map((m) => (
+                                        <option key={m.idMunicipality} value={m.idMunicipality}>
+                                            {m.town} {m.province && m.province !== 'N/A' ? `(${m.province})` : ''}
+                                        </option>
+                                    ))}
+                                </select>
                             </div>
                         </div>
                     </div>
@@ -167,6 +188,19 @@ const AddRequest = () => {
                         <h2 className="text-md font-semibold text-gray-700 border-b pb-2">Seed Request Details</h2>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="md:col-span-2">
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Study Title *</label>
+                                <input
+                                    type="text"
+                                    name="studyTitle"
+                                    value={formData.studyTitle}
+                                    onChange={handleChange}
+                                    required
+                                    placeholder="e.g. The Ripple of Conflict"
+                                    className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:ring-2 focus:ring-green-500 outline-none"
+                                />
+                            </div>
+
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1">Requested Seed *</label>
                                 <select
@@ -174,8 +208,8 @@ const AddRequest = () => {
                                     value={formData.seedBarcode}
                                     onChange={handleChange}
                                     required
-                                    disabled={loadingSeeds}
-                                    className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:ring-2 focus:ring-green-500 outline-none"
+                                    disabled={loadingSelects}
+                                    className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:ring-2 focus:ring-green-500 outline-none bg-white"
                                 >
                                     <option value="">-- Select Seed --</option>
                                     {seeds.map((s) => (

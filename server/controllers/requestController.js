@@ -132,6 +132,16 @@ class requestController {
     }
   }
   
+  // NEW: Get municipalities for the dropdown
+  static async getMunicipalities(req, res) {
+    try {
+      const municipalities = await RequestService.getMunicipalities();
+      return res.status(200).json({ success: true, data: municipalities });
+    } catch (error) {
+      return res.status(500).json({ success: false, error: error.message });
+    }
+  }
+
 }
 
 module.exports = requestController;

@@ -22,5 +22,6 @@ router.put("/update-status", RequestController.updateRequestStatus);
 // NEW ROUTES
 router.get("/seeds-list", RequestController.getSeedsList);
 router.post("/create", RequestController.createRequest);
+router.get("/municipalities", RequestController.getMunicipalities);
 
 module.exports = router;

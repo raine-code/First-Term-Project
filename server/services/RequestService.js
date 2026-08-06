@@ -1,12 +1,6 @@
 // server/services/RequestService.js
 const { Op } = require("sequelize");
-const {
-  Request,
-  Requester,
-  Municipality,
-  Active,
-  RequestLineItem,
-} = require("../model");
+const { Request, Requester, Municipality, Active, RequestLineItem } = require("../model");
 const inventoryService = require("./InventoryService");
 
 class RequestService {
@@ -30,27 +24,20 @@ class RequestService {
     });
   }
 
-  // Create a new request, finding/creating Requester & Municipality records
   async createRequest(payload) {
     const {
       fName,
       lName,
       agency,
       emailAdd,
-      municipality,
+      municipalityId, // <-- 1. Extract the ID directly sent by your React dropdown
       seedBarcode,
       weightReq,
+      studyTitle,
     } = payload;
 
-    // 1. Find or create Municipality
-    let municipalityId = null;
-    if (municipality) {
-      const [muniRecord] = await Municipality.findOrCreate({
-        where: { town: municipality },
-        defaults: { town: municipality, province: "N/A" },
-      });
-      municipalityId = muniRecord.idMunicipality;
-    }
+    // (We removed the Municipality findOrCreate block because the dropdown
+    // already guarantees we have a valid, existing municipalityId!)
 
     // 2. Find or create Requester by email
     const [requester] = await Requester.findOrCreate({
@@ -60,7 +47,9 @@ class RequestService {
         lName,
         agency,
         emailAdd,
-        idFkMunicipality: municipalityId,
+        idFkMunicipality: municipalityId, // <-- 2. Passes the valid ID, no more nulls!
+        // Note: If Sequelize still complains about the column name, change the key
+        // above to exactly match your DB: ID_FK_MUNICIPALITY: municipalityId
       },
     });
 
@@ -105,6 +94,7 @@ class RequestService {
       dateReq: new Date(),
       weightReq: parseInt(weightReq, 10),
       status: "PENDING",
+      studyTitle: studyTitle,
     });
 
     // 6. Create associated RequestLineItem record
@@ -299,6 +289,14 @@ class RequestService {
       .slice(0, 10);
 
     return { topSeeds, topRequesters };
+  }
+
+  // Fetch all registered municipalities for dropdown selection
+  async getMunicipalities() {
+    return await Municipality.findAll({
+      attributes: ["idMunicipality", "town", "province"],
+      order: [["town", "ASC"]], // Orders the dropdown alphabetically by town
+    });
   }
 }
 
