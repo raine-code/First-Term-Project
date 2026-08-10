@@ -24,4 +24,8 @@ router.get("/seeds-list", RequestController.getSeedsList);
 router.post("/create", RequestController.createRequest);
 router.get("/municipalities", RequestController.getMunicipalities);
 
+// Seed management endpoints
+router.get("/seeds-all", RequestController.getAllSeeds);
+router.post("/seed/create", RequestController.createSeed);
+
 module.exports = router;

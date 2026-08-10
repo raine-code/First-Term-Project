@@ -1,6 +1,6 @@
 // server/services/RequestService.js
 const { Op } = require("sequelize");
-const { Request, Requester, Municipality, Active, RequestLineItem } = require("../model");
+const { Request, Requester, Municipality, Active, RequestLineItem, Gid } = require("../model");
 const inventoryService = require("./InventoryService");
 
 class RequestService {
@@ -196,6 +196,7 @@ class RequestService {
   }
 
   // Operational analytics calculation for top seeds and requesters
+  // Operational analytics calculation for top seeds and requesters
   async getAnalytics() {
     const rawSeeds = await RequestLineItem.findAll({
       attributes: ["FK_BARCODE", "ID_LINEITEM"],
@@ -219,6 +220,25 @@ class RequestService {
         },
       ],
       where: { status: "DISPATCHED" },
+      raw: true,
+    });
+
+    // --- NEW: Fetch all requests for Demand Geography ---
+    const rawDemand = await Request.findAll({
+      include: [
+        {
+          model: Requester,
+          attributes: ["AGENCY"],
+          include: [
+            {
+              model: Municipality,
+              attributes: ["TOWN", "PROVINCE"],
+              required: false,
+            },
+          ],
+          required: false,
+        },
+      ],
       raw: true,
     });
 
@@ -288,7 +308,56 @@ class RequestService {
       .sort((a, b) => b.distributedCount - a.distributedCount)
       .slice(0, 10);
 
-    return { topSeeds, topRequesters };
+    // --- NEW: Group Demand by Location and Agency ---
+    const locationMap = {};
+    const agencyMap = {};
+
+    rawDemand.forEach((item) => {
+      // Dynamically find keys to handle Sequelize raw output naming
+      const townKey = Object.keys(item).find(
+        (k) => k.includes("TOWN") || k.includes("town"),
+      );
+      const provKey = Object.keys(item).find(
+        (k) => k.includes("PROVINCE") || k.includes("province"),
+      );
+      const agencyKey = Object.keys(item).find(
+        (k) => k.includes("AGENCY") || k.includes("agency"),
+      );
+
+      const town = item[townKey] ? item[townKey].trim() : "Unknown Town";
+      const province = item[provKey]
+        ? item[provKey].trim()
+        : "Unknown Province";
+      const agency = item[agencyKey]
+        ? item[agencyKey].trim()
+        : "Unknown Agency";
+
+      // 1. Map Location
+      const locKey = `${town}, ${province}`;
+      if (!locationMap[locKey]) {
+        locationMap[locKey] = { location: locKey, count: 0 };
+      }
+      locationMap[locKey].count += 1;
+
+      // 2. Map Agency (Ignore empty/unknown if preferred, currently counting all)
+      if (agency && agency.toLowerCase() !== "n/a") {
+        if (!agencyMap[agency]) {
+          agencyMap[agency] = { agency, count: 0 };
+        }
+        agencyMap[agency].count += 1;
+      }
+    });
+
+    const topLocations = Object.values(locationMap)
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 10);
+
+    const topAgencies = Object.values(agencyMap)
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 10);
+
+    // Return the new properties alongside the old ones
+    return { topSeeds, topRequesters, topLocations, topAgencies };
   }
 
   // Fetch all registered municipalities for dropdown selection
@@ -296,6 +365,62 @@ class RequestService {
     return await Municipality.findAll({
       attributes: ["idMunicipality", "town", "province"],
       order: [["town", "ASC"]], // Orders the dropdown alphabetically by town
+    });
+  }
+
+  // Fetch all seeds with full details for SeedList table
+  async getAllSeeds() {
+    return await Active.findAll({
+      include: [
+        {
+          model: Gid,
+          attributes: ["accNo", "accName"],
+          required: false,
+        },
+      ],
+      order: [["idActive", "ASC"]],
+    });
+  }
+
+  // Register a new seed packet into TBL_ACTIVE
+  async createSeed(payload) {
+    const {
+      accNo, // User enters accession number (e.g., "PRRI000006")
+      name,
+      currentWeight,
+      viability,
+      barcode,
+      stockOnhand,
+      location,
+      availability,
+    } = payload;
+
+    let idFkGid = null;
+
+    if (accNo && accNo.trim() !== "") {
+      // Find existing GID record by accNo, or create a new row in TBL_GID automatically
+      const [gidRecord] = await Gid.findOrCreate({
+        where: { accNo: accNo.trim() },
+        defaults: {
+          accNo: accNo.trim(),
+          accName: name ? name.trim() : "",
+        },
+      });
+
+      // Extract the auto-increment integer GID
+      idFkGid = gidRecord.gid;
+    }
+
+    // Create record in TBL_ACTIVE using the resolved integer FK
+    return await Active.create({
+      idFkGid,
+      name,
+      currentWeight: parseInt(currentWeight, 10),
+      viability: parseFloat(viability),
+      barcode,
+      stockOnhand: parseInt(stockOnhand, 10),
+      location,
+      availability: availability || "AVAILABLE",
     });
   }
 }

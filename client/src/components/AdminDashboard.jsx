@@ -50,6 +50,12 @@ const AdminDashboard = () => {
           Analytics
         </button>
         <button
+          onClick={() => navigate('/seeds')}
+          className="bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-2 rounded text-sm font-medium shadow transition-colors"
+        >
+          Seed Inventory
+        </button>
+        <button
           onClick={() => navigate('/add-request')}
           className="bg-green-600 hover:bg-green-700 text-white px-5 py-2 rounded text-sm font-medium shadow transition-colors"
         >

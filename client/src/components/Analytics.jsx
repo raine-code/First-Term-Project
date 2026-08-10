@@ -2,7 +2,13 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 
 const AnalyticsPage = () => {
-    const [analytics, setAnalytics] = useState({ topSeeds: [], topRequesters: [] });
+    // 1. ADD topLocations and topAgencies to state
+    const [analytics, setAnalytics] = useState({
+        topSeeds: [],
+        topRequesters: [],
+        topLocations: [],
+        topAgencies: []
+    });
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const navigate = useNavigate();
@@ -16,9 +22,12 @@ const AnalyticsPage = () => {
                 console.log("Backend Response:", result);
 
                 if (response.ok && result.success) {
+                    // 2. UPDATE state setter
                     setAnalytics({
                         topSeeds: result.data?.topSeeds || [],
                         topRequesters: result.data?.topRequesters || [],
+                        topLocations: result.data?.topLocations || [],
+                        topAgencies: result.data?.topAgencies || [],
                     });
                 } else {
                     setError("Failed to fetch analytics data.");
@@ -45,7 +54,7 @@ const AnalyticsPage = () => {
                     onClick={() => navigate(-1)}
                     className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded shadow transition-colors"
                 >
-                    ← Back to Dashboard
+                    Back to Dashboard
                 </button>
             </div>
 
@@ -54,75 +63,151 @@ const AnalyticsPage = () => {
             ) : error ? (
                 <div className="text-center text-red-500 mt-10">{error}</div>
             ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                    {/* Card 1: Most Requested Seeds */}
-                    <div className="bg-white rounded-lg shadow border border-gray-200 overflow-hidden">
-                        <div className="bg-purple-50 p-4 border-b border-gray-200">
-                            <h2 className="text-lg font-bold text-purple-800">Most Requested Seeds</h2>
-                        </div>
-                        <table className="min-w-full divide-y divide-gray-200">
-                            <thead className="bg-gray-50">
-                                <tr>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Seed Name</th>
-                                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Total Requests</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-gray-200">
-                                {analytics.topSeeds.length > 0 ? (
-                                    analytics.topSeeds.map((seed, index) => (
-                                        <tr key={index} className="hover:bg-gray-50">
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                                                {seed.seedName || "Unknown Seed"}
-                                            </td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-gray-700 font-bold">
-                                                {seed.requestCount || 0}
+                <div className="space-y-8">
+                    {/* ROW 1: EXISTING CARDS */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                        {/* Card 1: Most Requested Seeds */}
+                        <div className="bg-white rounded-lg shadow border border-gray-200 overflow-hidden">
+                            <div className="bg-purple-50 p-4 border-b border-gray-200">
+                                <h2 className="text-lg font-bold text-purple-800">Most Requested Seeds</h2>
+                            </div>
+                            <table className="min-w-full divide-y divide-gray-200">
+                                <thead className="bg-gray-50">
+                                    <tr>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Seed Name</th>
+                                        <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Total Requests</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-200">
+                                    {analytics.topSeeds.length > 0 ? (
+                                        analytics.topSeeds.map((seed, index) => (
+                                            <tr key={index} className="hover:bg-gray-50">
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                                                    {seed.seedName || "Unknown Seed"}
+                                                </td>
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-gray-700 font-bold">
+                                                    {seed.requestCount || 0}
+                                                </td>
+                                            </tr>
+                                        ))
+                                    ) : (
+                                        <tr>
+                                            <td colSpan="2" className="px-6 py-4 text-center text-sm text-gray-500">
+                                                No data available
                                             </td>
                                         </tr>
-                                    ))
-                                ) : (
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
+
+                        {/* Card 2: Top Requesters */}
+                        <div className="bg-white rounded-lg shadow border border-gray-200 overflow-hidden">
+                            <div className="bg-blue-50 p-4 border-b border-gray-200">
+                                <h2 className="text-lg font-bold text-blue-800">Top Requesters (Seeds Distributed)</h2>
+                            </div>
+                            <table className="min-w-full divide-y divide-gray-200">
+                                <thead className="bg-gray-50">
                                     <tr>
-                                        <td colSpan="2" className="px-6 py-4 text-center text-sm text-gray-500">
-                                            No data available
-                                        </td>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Requester Name</th>
+                                        <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Dispatched Count</th>
                                     </tr>
-                                )}
-                            </tbody>
-                        </table>
+                                </thead>
+                                <tbody className="divide-y divide-gray-200">
+                                    {analytics.topRequesters.length > 0 ? (
+                                        analytics.topRequesters.map((req, index) => (
+                                            <tr key={index} className="hover:bg-gray-50">
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                                                    {req.fName || "Unknown"} {req.lName || "User"}
+                                                </td>
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-green-600 font-bold">
+                                                    {req.distributedCount || 0}
+                                                </td>
+                                            </tr>
+                                        ))
+                                    ) : (
+                                        <tr>
+                                            <td colSpan="2" className="px-6 py-4 text-center text-sm text-gray-500">
+                                                No data available
+                                            </td>
+                                        </tr>
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
 
-                    {/* Card 2: Top Requesters */}
-                    <div className="bg-white rounded-lg shadow border border-gray-200 overflow-hidden">
-                        <div className="bg-blue-50 p-4 border-b border-gray-200">
-                            <h2 className="text-lg font-bold text-blue-800">Top Requesters (Seeds Distributed)</h2>
-                        </div>
-                        <table className="min-w-full divide-y divide-gray-200">
-                            <thead className="bg-gray-50">
-                                <tr>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Requester Name</th>
-                                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Dispatched Count</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-gray-200">
-                                {analytics.topRequesters.length > 0 ? (
-                                    analytics.topRequesters.map((req, index) => (
-                                        <tr key={index} className="hover:bg-gray-50">
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                                                {req.fName || "Unknown"} {req.lName || "User"}
-                                            </td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-green-600 font-bold">
-                                                {req.distributedCount || 0}
+                    {/* ROW 2: NEW DEMAND GEOGRAPHY CARDS */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                        {/* Card 3: Demand by Location */}
+                        <div className="bg-white rounded-lg shadow border border-gray-200 overflow-hidden">
+                            <div className="bg-amber-50 p-4 border-b border-gray-200">
+                                <h2 className="text-lg font-bold text-amber-800">Demand by Province/Town</h2>
+                            </div>
+                            <table className="min-w-full divide-y divide-gray-200">
+                                <thead className="bg-gray-50">
+                                    <tr>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Location</th>
+                                        <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Total Requests</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-200">
+                                    {analytics.topLocations.length > 0 ? (
+                                        analytics.topLocations.map((loc, index) => (
+                                            <tr key={index} className="hover:bg-gray-50">
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                                                    {loc.location}
+                                                </td>
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-gray-700 font-bold">
+                                                    {loc.count || 0}
+                                                </td>
+                                            </tr>
+                                        ))
+                                    ) : (
+                                        <tr>
+                                            <td colSpan="2" className="px-6 py-4 text-center text-sm text-gray-500">
+                                                No data available
                                             </td>
                                         </tr>
-                                    ))
-                                ) : (
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
+
+                        {/* Card 4: Top Agencies */}
+                        <div className="bg-white rounded-lg shadow border border-gray-200 overflow-hidden">
+                            <div className="bg-teal-50 p-4 border-b border-gray-200">
+                                <h2 className="text-lg font-bold text-teal-800">Top Requesting Agencies</h2>
+                            </div>
+                            <table className="min-w-full divide-y divide-gray-200">
+                                <thead className="bg-gray-50">
                                     <tr>
-                                        <td colSpan="2" className="px-6 py-4 text-center text-sm text-gray-500">
-                                            No data available
-                                        </td>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Agency Name</th>
+                                        <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Total Requests</th>
                                     </tr>
-                                )}
-                            </tbody>
-                        </table>
+                                </thead>
+                                <tbody className="divide-y divide-gray-200">
+                                    {analytics.topAgencies.length > 0 ? (
+                                        analytics.topAgencies.map((ag, index) => (
+                                            <tr key={index} className="hover:bg-gray-50">
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                                                    {ag.agency}
+                                                </td>
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-gray-700 font-bold">
+                                                    {ag.count || 0}
+                                                </td>
+                                            </tr>
+                                        ))
+                                    ) : (
+                                        <tr>
+                                            <td colSpan="2" className="px-6 py-4 text-center text-sm text-gray-500">
+                                                No data available
+                                            </td>
+                                        </tr>
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
                 </div>
             )}

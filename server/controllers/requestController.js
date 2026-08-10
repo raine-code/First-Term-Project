@@ -131,7 +131,7 @@ class requestController {
       return res.status(500).json({ success: false, error: error.message });
     }
   }
-  
+
   // NEW: Get municipalities for the dropdown
   static async getMunicipalities(req, res) {
     try {
@@ -142,6 +142,43 @@ class requestController {
     }
   }
 
+  static async getAllSeeds(req, res) {
+    try {
+      const seeds = await RequestService.getAllSeeds();
+      return res.status(200).json({ success: true, data: seeds });
+    } catch (error) {
+      return res.status(500).json({ success: false, error: error.message });
+    }
+  }
+
+  static async createSeed(req, res) {
+    try {
+      const { name, barcode, currentWeight, stockOnhand, viability, accNo } =
+        req.body;
+      if (
+        !name ||
+        !barcode ||
+        currentWeight === undefined ||
+        stockOnhand === undefined ||
+        accNo === undefined
+      ) {
+        return res.status(400).json({
+          success: false,
+          error: "Please fill in all required seed fields.",
+        });
+      }
+
+      const newSeed = await RequestService.createSeed(req.body);
+      return res.status(201).json({
+        success: true,
+        message: "Seed registered successfully!",
+        data: newSeed,
+      });
+    } catch (error) {
+      console.error("Error creating seed:", error);
+      return res.status(500).json({ success: false, error: error.message });
+    }
+  }
 }
 
 module.exports = requestController;

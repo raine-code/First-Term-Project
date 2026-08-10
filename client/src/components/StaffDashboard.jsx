@@ -46,7 +46,7 @@ const StaffDashboard = () => {
             </div>
 
             <div>
-                Another component
+                <h2 className="text-xl font-bold text-gray-800 mb-4">Daily Statistic</h2>
                 <DailyStats/>
             </div>
 
