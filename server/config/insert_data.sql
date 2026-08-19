@@ -1,0 +1,155 @@
+INSERT INTO TBL_MUNICIPALITY (TOWN, PROVINCE) VALUES
+('Science City of Munoz', 'Nueva Ecija'),
+('Cabanatuan City', 'Nueva Ecija'),
+('San Jose City', 'Nueva Ecija'),
+('Talavera', 'Nueva Ecija'),
+('Guimba', 'Nueva Ecija');
+
+INSERT INTO TBL_REQUESTER
+(ID_FK_MUNICIPALITY, F_NAME, L_NAME, AGENCY, EMAIL_ADD)
+VALUES
+(1, 'Malvin', 'Duldulao', 'DA-Philippine Rice Research Institute', 'malvin@philrice.gov.ph'),
+(2, 'John', 'Santos', 'Central Luzon State University', 'john.santos@clsu.edu.ph'),
+(3, 'Maria', 'Reyes', 'Department of Agriculture', 'maria.reyes@da.gov.ph'),
+(4, 'Carlos', 'Garcia', 'Nueva Ecija University of Science and Technology', 'carlos.garcia@neust.edu.ph'),
+(5, 'Angela', 'Torres', 'PhilRice', 'angela.torres@philrice.gov.ph');
+
+INSERT INTO TBL_GID
+(ACC_NO, ACC_NAME)
+VALUES
+('PRRI000001', 'HINAMOG'),
+('PRRI000002', 'DINORADO'),
+('PRRI000003', 'IR64'),
+('PRRI000004', 'NSIC Rc222'),
+('PRRI000005', 'PSB Rc18');
+
+INSERT INTO TBL_ACTIVE
+(ID_FK_GID, CURRENT_WEIGHT, VIABILITY, BARCODE, STOCK_ONHAND, LOCATION, AVAILABILITY)
+VALUES
+(1, 90, 96.5, '2023-01-0001-1', 90, 'T679', 'AVAILABLE'),
+(2, 75, 95.0, '2023-01-0002-1', 75, 'T680', 'AVAILABLE'),
+(3, 60, 94.2, '2023-01-0003-1', 60, 'T681', 'AVAILABLE'),
+(4, 85, 98.1, '2023-01-0004-1', 85, 'T682', 'AVAILABLE'),
+(5, 40, 92.8, '2023-01-0005-1', 40, 'T683', 'AVAILABLE');
+
+INSERT INTO TBL_REQUEST
+(
+ID_FK_REQUESTER,
+TRACKING_NO,
+DATE_REQ,
+WEIGHT_REQ,
+STUDY_TITLE,
+STATUS,
+DATE_APPROVED,
+DATE_DISPATCHED
+)
+VALUES
+(1,'2026-GBSR-0001','2026-01-05',10,
+'The Role of Cytokinin in Regulating Genes Related to Grain Filling',
+'DISPATCHED','2026-01-07','2026-01-08'),
+
+(2,'2026-GBSR-0002','2026-02-12',5,
+'Rice Drought Resistance Study',
+'APPROVED','2026-02-14',NULL),
+
+(3,'2026-GBSR-0003','2026-03-20',8,
+'Genetic Diversity of Traditional Rice',
+'PENDING',NULL,NULL),
+
+(4,'2026-GBSR-0004','2026-04-02',12,
+'Seed Quality Assessment',
+'PROCESSING','2026-04-04',NULL),
+
+(5,'2026-GBSR-0005','2026-05-15',6,
+'Rice Yield Improvement Project',
+'COMPLETED','2026-05-17','2026-05-18');
+
+INSERT INTO TBL_REQUEST_LINEITEM
+(FK_TRACKING_NO, FK_BARCODE, STOCK_OUT)
+VALUES
+('2026-GBSR-0001','2023-01-0001-1',10),
+('2026-GBSR-0002','2023-01-0002-1',5),
+('2026-GBSR-0003','2023-01-0003-1',8),
+('2026-GBSR-0004','2023-01-0004-1',12),
+('2026-GBSR-0005','2023-01-0005-1',6);
+
+UPDATE TBL_ACTIVE
+SET SEED_NAME = 'NSIC Rc 60'
+WHERE BARCODE = '2023-01-0001-1';
+
+UPDATE TBL_ACTIVE
+SET SEED_NAME = 'NSIC Rc 222'
+WHERE BARCODE = '2023-01-0002-1';
+
+UPDATE TBL_ACTIVE
+SET SEED_NAME = 'IR64'
+WHERE BARCODE = '2023-01-0003-1';
+
+UPDATE TBL_ACTIVE
+SET SEED_NAME = 'PSB Rc18'
+WHERE BARCODE = '2023-01-0004-1';
+
+UPDATE TBL_ACTIVE
+SET SEED_NAME = 'Dinorado'
+WHERE BARCODE = '2023-01-0005-1';
+
+INSERT INTO TBL_USER (
+    USERNAME,
+    FIRST_NAME,
+    LAST_NAME,
+    ROLE,
+    PASSWORD
+)
+VALUES (
+    '1001',
+    'John',
+    'Doe',
+    'STAFF',
+    '$2b$10$UGN6dc/2mA/mTeNZi0Rc0eDxJybPbgGRve8aaOy.N.KiWLBJ3rn2e'
+);
+
+
+INSERT INTO TBL_USER (
+    USERNAME,
+    FIRST_NAME,
+    LAST_NAME,
+    ROLE,
+    PASSWORD
+)
+VALUES (
+    '2001',
+    'David',
+    'Smit',
+    'ADMIN',
+    '$2b$10$UGN6dc/2mA/mTeNZi0Rc0eDxJybPbgGRve8aaOy.N.KiWLBJ3rn2e'
+);
+
+DELETE FROM tbl_user
+WHERE ID_USER = 2;
+
+SET SQL_SAFE_UPDATES = 0;
+
+UPDATE TBL_REQUEST
+SET
+    STATUS = 'PENDING',
+    DATE_APPROVED = NULL,
+    DATE_DISPATCHED = NULL;
+
+SET SQL_SAFE_UPDATES = 1;
+
+UPDATE TBL_REQUEST
+SET
+    STATUS = 'PENDING',
+    DATE_APPROVED = NULL,
+    DATE_DISPATCHED = NULL
+WHERE ID_REQUEST > 0;
+
+ALTER TABLE TBL_ACTIVE AUTO_INCREMENT = 6;
+
+ALTER TABLE `TBL_USER`
+ADD COLUMN `FAILED_ATTEMPTS` INT DEFAULT 0,
+ADD COLUMN `LOCK_UNTIL` DATETIME NULL;   
+
+update TBL_USER
+set PASSWORD = '$2b$10$vscKN.3DqszSrqLH.Q.QReYc8QXPxMZ821CBiW/rHhJyU2itqQhci'
+where ID_USER = 3
