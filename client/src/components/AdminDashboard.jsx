@@ -1,95 +1,110 @@
-import { useState, useEffect } from "react"
-import { useNavigate } from "react-router-dom"
-import DailyStats from "./reusables/dailystats"
-import RequestList from "./reusables/RequestList"
-import RequestCalendar from "./reusables/RequestCalendar"
-
+import { useState, useEffect } from "react";
+import { useNavigate, Link } from "react-router-dom";
+import Navbar from "./Navbar";
+import DailyStats from "./reusables/dailystats";
+import RequestList from "./reusables/RequestList";
+import RequestCalendar from "./reusables/RequestCalendar";
+import { FaPlusCircle, FaBoxes } from "react-icons/fa";
 
 const AdminDashboard = () => {
-  const navigate = useNavigate()
-  const [reloadTrigger] = useState(0);
+  const navigate = useNavigate();
+  const [statsTrigger, setStatsTrigger] = useState(0);
 
-  const [user] = useState(() => {
-    const storedUser = localStorage.getItem("user")
-    return storedUser ? JSON.parse(storedUser) : null
-  })
+  const getStoredUser = () => {
+    try {
+      const item = localStorage.getItem("user");
+      return item ? JSON.parse(item) : null;
+    } catch (e) {
+      return null;
+    }
+  };
+
+  const user = getStoredUser();
 
   useEffect(() => {
     if (!user) {
-      navigate("/")
+      navigate("/");
     }
-  }, [user, navigate])
+  }, [user, navigate]);
 
-  const handleLogout = () => {
-    localStorage.clear()
-    navigate("/")
-  }
-
-  const [statsTrigger, setStatsTrigger] = useState(0);
-
-  // Function to refresh stats when a request action occurs
-  const handleRefreshStats = () => {
+  // Function to refresh stats & calendar when a request status is changed or deadline updated
+  const handleRefreshData = () => {
     setStatsTrigger((prev) => prev + 1);
   };
 
+  const currentDateFormatted = new Date().toLocaleDateString("en-US", {
+    weekday: "long",
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
+
   return (
-    <div className="p-6">
-      <div className="flex justify-between items-center mb-6">
-        <div>
-          <h1 className="text-4xl font-bold text-gray-800">
-            Welcome back, {user ? `${user.firstName} ${user.lastName}` : "User"}! 👋
-          </h1>
-          <p className="text-xl text-gray-500">
-            Logged in as: <span className="font-semibold text-green-600">{user?.role}</span>
-          </p>
+    <div className="min-h-screen bg-slate-50 flex flex-col">
+      <Navbar />
+
+      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+        {/* Welcome Header Box */}
+        <div className="bg-white rounded-2xl p-6 sm:p-7 border border-slate-200 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-5">
+          <div>
+            <div className="flex items-center gap-2 mb-1">
+              <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">
+                {currentDateFormatted}
+              </span>
+            </div>
+            <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
+              Welcome back, {user ? `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.username : "Administrator"}! 👋
+            </h1>
+            <p className="text-sm text-slate-500 mt-1">
+              Here is your seed inventory overview, pending orders, and processing timeline.
+            </p>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2.5">
+            <Link
+              to="/add-request"
+              className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold px-4 py-2.5 rounded-xl shadow-xs hover:shadow transition-all"
+            >
+              <FaPlusCircle className="text-sm" />
+              <span>Add Request</span>
+            </Link>
+            <Link
+              to="/add-seed"
+              className="flex items-center gap-2 bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold px-4 py-2.5 rounded-xl shadow-xs hover:shadow transition-all"
+            >
+              <FaBoxes className="text-sm" />
+              <span>Register Seed</span>
+            </Link>
+          </div>
         </div>
-        <button
-          onClick={() => navigate('/analytics')}
-          className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded text-sm font-medium shadow transition-colors"
-        >
-          Analytics
-        </button>
-        <button
-          onClick={() => navigate('/seeds')}
-          className="bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-2 rounded text-sm font-medium shadow transition-colors"
-        >
-          Seed Inventory
-        </button>
-        <button
-          onClick={() => navigate('/add-request')}
-          className="bg-green-600 hover:bg-green-700 text-white px-5 py-2 rounded text-sm font-medium shadow transition-colors"
-        >
-          Add Request
-        </button>
-        <button
-          onClick={handleLogout}
-          className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded text-sm transition-colors"
-        >
-          Logout
-        </button>
-      </div>
 
-      <div>
-        <h2 className="text-xl font-bold text-gray-800 mb-4">Daily Statistic</h2>
-        <DailyStats reloadTrigger={statsTrigger} />
-      </div>
+        {/* Section 1: KPI Statistics */}
+        <section className="space-y-3">
+          <div className="flex items-center justify-between">
+            <h2 className="text-sm font-bold uppercase tracking-wider text-slate-500">
+              System Metrics
+            </h2>
+            <span className="text-xs text-slate-400">Auto-synced</span>
+          </div>
+          <DailyStats reloadTrigger={statsTrigger} />
+        </section>
 
-      <div className="mt-8">
-        <h2 className="text-xl font-bold text-gray-800 mb-4">Upcoming Deadlines</h2>
-      
-        {/* 1. Pass reloadTrigger to Calendar */}
-        <RequestCalendar reloadTrigger={reloadTrigger} />
-      </div>
+        {/* Section 2: Calendar Deadlines */}
+        <section className="space-y-3">
+          <RequestCalendar role="ADMIN" reloadTrigger={statsTrigger} />
+        </section>
 
-      <div className="p-6 space-y-6">
-        {/* 1. Pass statsTrigger to your stats component so it re-fetches in its useEffect */}
-
-        {/* 2. Pass handleRefreshStats as onStatusChange to RequestList */}
-        <RequestList role="ADMIN" onStatusChange={handleRefreshStats} />
-      </div>
-
+        {/* Section 3: Requisition Orders Table */}
+        <section className="space-y-3">
+          <RequestList
+            role="ADMIN"
+            onRequestUpdate={handleRefreshData}
+            onStatusChange={handleRefreshData}
+          />
+        </section>
+      </main>
     </div>
-  )
-}
+  );
+};
 
-export default AdminDashboard
+export default AdminDashboard;

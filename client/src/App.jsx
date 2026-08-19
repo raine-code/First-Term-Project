@@ -1,7 +1,7 @@
 // src/App.jsx
 import { Routes, Route } from "react-router-dom";
 import Login from "./components/Login";
-import BarcodeScanner from "./components/BarcodeScanner"; // or Dashboard component
+import BarcodeScanner from "./components/BarcodeScanner";
 import AdminDashboard from "./components/AdminDashboard";
 import StaffDashboard from "./components/StaffDashboard";
 import AnalyticsPage from './components/Analytics';
@@ -20,6 +20,7 @@ function App() {
       <Route path="/requests" element={<StaffDashboard />} />
       <Route path="/add-request" element={<AddRequest />} />
       <Route path="/seeds" element={<SeedList />} />
+      <Route path="/seed-list" element={<SeedList />} />
       <Route path="/add-seed" element={<AddSeed />} />
     </Routes>
   )
